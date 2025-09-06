@@ -6,7 +6,7 @@ Containerized with Docker, and scalable via Docker Compose.
 
 ---
 
-## What You Will Learn
+## What We will Learn
 
 - How to build a rate-limiting system using **Redis**  
 - How to use **Lua scripts** with Redis for **atomic** operations  
@@ -31,7 +31,7 @@ Install the following:
 
 ## Project Overview
 
-You will:
+I had:
 
 - Build a Redis-backed rate limiter that enforces request quotas  
 - Use **Lua scripts** to ensure atomicity & avoid race conditions  
