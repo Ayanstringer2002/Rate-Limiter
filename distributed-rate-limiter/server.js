@@ -1,44 +1,51 @@
-require('dotenv').config();
-const express = require('express');
-const redis = require('redis');
-const fs = require('fs');
-const path = require('path');
+const express = require("express");
+const { createClient } = require("redis");
+require("dotenv").config();
 
 const app = express();
-const client = redis.createClient({
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT
+
+const redisClient = createClient({
+  url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`
 });
 
-const rateLimitScript = fs.readFileSync(path.join(__dirname, 'rate_limiter.lua'), 'utf8');
+// Handle Redis connection errors
+redisClient.on("error", (err) => console.error("Redis Client Error", err));
 
-const RATE_LIMIT = parseInt(process.env.RATE_LIMIT);
-const TIME_WINDOW = parseInt(process.env.TIME_WINDOW);
+async function startServer() {
+  await redisClient.connect();   
 
-// Middleware for rate limiting
-async function rateLimiter(req, res, next) {
-  const ip = req.ip;
-  try {
-    const allowed = await client.eval(rateLimitScript, 1, ip, RATE_LIMIT, TIME_WINDOW);
-    if (allowed === 1) {
-      next();
-    } else {
-      res.status(429).json({ message: 'Too many requests. Please try again later.' });
+  const RATE_LIMIT = process.env.RATE_LIMIT || 5;
+  const TIME_WINDOW = process.env.TIME_WINDOW || 60;
+
+  app.use(async (req, res, next) => {
+    try {
+      const ip = req.ip;
+      const key = `rate-limit:${ip}`;
+
+      let requests = await redisClient.get(key);
+
+      if (requests === null) {
+        await redisClient.setEx(key, TIME_WINDOW, 1);
+        next();
+      } else if (parseInt(requests) < RATE_LIMIT) {
+        await redisClient.incr(key);
+        next();
+      } else {
+        res.status(429).send("Too many requests. Please try again later.");
+      }
+    } catch (err) {
+      console.error("Error in rate limiter:", err);
+      res.status(500).send("Internal Server Error");
     }
-  } catch (err) {
-    console.error('Error in rate limiter:', err);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+  });
+
+  app.get("/", (req, res) => {
+    res.send("Hello, world! 🚀");
+  });
+
+  app.listen(process.env.PORT || 3000, () => {
+    console.log(`Server running on port ${process.env.PORT || 3000}`);
+  });
 }
 
-app.use(rateLimiter);
-
-app.get('/', (req, res) => {
-  res.send('Welcome to the Rate Limited API!');
-});
-
-const PORT = process.env.PORT;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
+startServer();
