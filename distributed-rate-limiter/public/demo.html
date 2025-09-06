@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Rate Limiter Demo</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+    .stats { display: flex; gap: 2rem; margin-bottom: 1rem; }
+    .stat { padding: 1rem; border: 1px solid #ddd; border-radius: 12px; }
+    button { padding: .6rem 1rem; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; }
+    #log { margin-top: 1rem; max-height: 240px; overflow: auto; border: 1px solid #eee; padding: .5rem; }
+  </style>
+</head>
+<body>
+  <h1>Rate Limiter Traffic Simulator</h1>
+  <div class="stats">
+    <div class="stat">Allowed: <span id="allowed">0</span></div>
+    <div class="stat">Blocked: <span id="blocked">0</span></div>
+  </div>
+  <div>
+    <button id="start">Start 5 RPS</button>
+    <button id="stop">Stop</button>
+    <button id="single">Single Request</button>
+  </div>
+  <pre id="log"></pre>
+
+  <script>
+    let timer = null;
+    const allowedEl = document.getElementById('allowed');
+    const blockedEl = document.getElementById('blocked');
+    const logEl = document.getElementById('log');
+
+    function log(line) {
+      const ts = new Date().toISOString();
+      logEl.textContent += `[${ts}] ${line}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function hit() {
+      try {
+        const res = await fetch('/', { cache: 'no-store' });
+        if (res.status === 200) {
+          allowedEl.textContent = (+allowedEl.textContent) + 1;
+          log('200 OK');
+        } else {
+          blockedEl.textContent = (+blockedEl.textContent) + 1;
+          log(res.status + ' ' + (await res.text()));
+        }
+      } catch (e) {
+        log('Error: ' + e.message);
+      }
+    }
+
+    document.getElementById('start').onclick = () => {
+      if (timer) return;
+      timer = setInterval(hit, 200); // ~5 RPS
+      log('Started ~5 RPS');
+    };
+    document.getElementById('stop').onclick = () => {
+      clearInterval(timer); timer = null; log('Stopped');
+    };
+    document.getElementById('single').onclick = () => hit();
+  </script>
+</body>
+</html>
