@@ -42,19 +42,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-async function rateLimiter(req, res, next) {
-  const ip = req.ip;
-  try {
-    const allowed = await client.eval(rateLimitScript, 1, ip, RATE_LIMIT, TIME_WINDOW);
-    if (allowed === 1) {
-      console.log(`Allowed request from ${ip}`);
-      next();
-    } else {
-      console.log(`Blocked request from ${ip}`);
-      res.status(429).json({ message: 'Too many requests. Please try again later.' });
-    }
-  } catch (err) {
-    console.error('Error in rate limiter:', err);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-}
